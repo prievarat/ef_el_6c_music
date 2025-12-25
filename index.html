@@ -1,0 +1,1371 @@
+<!-- index.html
+     Music Genres — 4-part classroom app (GitHub Pages friendly)
+
+     You will add:
+       - music.json  (list of genre ids)
+       - data/<id>.mp3  (your audio files, e.g. data/pop.mp3)
+
+     Key features:
+       Part 1: 12 audio cards + drag-drop matching
+       Part 2: 5 clues, guess after clue 5, +5 / -3 scoring
+       Part 3: Quick Sort — accepts multiple correct genres per sentence (1–3)
+       Part 4: Genre Writer + download TXT
+
+     Teacher workflow:
+       - You only edit music.json (ids) + add MP3 files in /data
+       - Text DB is embedded in this single HTML file
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Unit 6C — Music Genres (4-part)</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Nunito:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      /* DESIGN BRIEF */
+      --primary-300:#F9C97A; --primary-500:#F4A329; --primary-700:#B45309;
+      --secondary-300:#7EDAD6; --secondary-500:#2BB6B4; --secondary-700:#0F766E;
+      --accent-300:#F49DB8; --accent-500:#E8467B; --accent-700:#A61E4D;
+      --bg:#FFF7F2; --surface:#FFFFFF; --surface-alt:#F5F7FA; --border:#E6E9EF;
+      --text:#1F2937; --text-2:#4B5563; --text-muted:#6B7280; --text-inverse:#FFFFFF;
+      --success:#2F9E44; --warning:#F59F00; --error:#D92D20; --info:#2563EB;
+
+      --r-card:16px; --r-pill:9999px;
+      --shadow:0 4px 14px rgba(17,24,39,0.08);
+      --t:180ms ease;
+
+      --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:24px;
+      --max:1200px;
+
+      font-family:"Inter","Nunito",system-ui,sans-serif;
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      color:var(--text);
+      background:
+        radial-gradient(900px 520px at 15% 0%, rgba(244,163,41,0.18), transparent 62%),
+        radial-gradient(900px 520px at 90% 8%, rgba(43,182,180,0.18), transparent 58%),
+        var(--bg);
+      line-height:1.35;
+    }
+
+    .wrap{ max-width:var(--max); margin:0 auto; padding:24px 16px; display:grid; gap:16px; }
+
+    header{
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--r-card);
+      box-shadow:var(--shadow);
+      padding:16px;
+      display:flex;
+      gap:16px;
+      align-items:flex-start;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+
+    h1{ margin:0; font-size:32px; letter-spacing:-0.02em; }
+    .sub{ margin:6px 0 0; color:var(--text-2); font-size:16px; }
+
+    .pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 12px;
+      border-radius:var(--r-pill);
+      border:1px solid var(--primary-300);
+      background:rgba(244,163,41,0.14);
+      font-weight:600;
+      color:var(--text-2);
+      white-space:nowrap;
+    }
+
+    .tabs{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      padding:10px;
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--r-card);
+      box-shadow:var(--shadow);
+    }
+
+    .tab{
+      border:1px solid var(--border);
+      background:var(--surface-alt);
+      color:var(--text-2);
+      padding:10px 12px;
+      border-radius:9999px;
+      cursor:pointer;
+      transition: transform var(--t), filter var(--t), box-shadow var(--t), background var(--t), border-color var(--t);
+      font:inherit;
+      font-weight:600;
+    }
+    .tab:hover{ transform: translateY(-1px); box-shadow: var(--shadow); }
+    .tab[aria-selected="true"]{
+      background:rgba(43,182,180,0.12);
+      border-color: rgba(43,182,180,0.45);
+      color:var(--text);
+    }
+    .tab:focus{ outline:2px solid var(--secondary-500); outline-offset:2px; }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 320px 1fr;
+      gap:16px;
+      align-items:start;
+    }
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--r-card);
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
+
+    .card h2{ margin:0 0 10px; font-size:24px; }
+    .muted{ color:var(--text-muted); }
+
+    .bank{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .chip{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border:1px solid var(--border);
+      background:var(--surface-alt);
+      border-radius:16px;
+      cursor:grab;
+      user-select:none;
+      transition: transform var(--t), box-shadow var(--t), border-color var(--t), background var(--t);
+      font-weight:600;
+      color:var(--text);
+    }
+    .chip:hover{
+      transform: translateY(-1px);
+      box-shadow: var(--shadow);
+      border-color: rgba(43,182,180,0.45);
+    }
+    .chip:active{ cursor:grabbing; }
+    .chip small{ font-weight:400; color:var(--text-muted); }
+
+    .btnrow{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    button{
+      font:inherit;
+      border-radius:12px;
+      border:1px solid transparent;
+      padding:10px 12px;
+      cursor:pointer;
+      transition: transform var(--t), filter var(--t), box-shadow var(--t), background var(--t), border-color var(--t);
+    }
+    button:focus{ outline:2px solid var(--secondary-500); outline-offset:2px; }
+    button:disabled{ opacity:0.6; cursor:not-allowed; }
+    .btn-primary{ background:var(--primary-700); color:var(--text-inverse); }
+    .btn-primary:hover{ filter:brightness(0.95); }
+    .btn-ghost{ background:transparent; color:var(--primary-700); border-color:var(--primary-300); }
+    .btn-ghost:hover{ background: rgba(249,201,122,0.24); }
+    .btn-danger{ background:transparent; color:var(--error); border-color: rgba(217,45,32,0.35); }
+    .btn-danger:hover{ background: rgba(217,45,32,0.08); }
+    .btn-info{ background:rgba(37,99,235,0.10); border-color: rgba(37,99,235,0.25); color:var(--text); }
+    .btn-info:hover{ filter:brightness(0.98); }
+
+    /* Part 1 */
+    .cards12{
+      display:grid;
+      gap:12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    @media (max-width: 900px){
+      .cards12{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px){
+      .cards12{ grid-template-columns: 1fr; }
+    }
+
+    .musicCard{
+      border:1px solid var(--border);
+      background:var(--surface);
+      border-radius:16px;
+      padding:12px;
+      box-shadow: 0 1px 0 rgba(17,24,39,0.04);
+      display:grid;
+      gap:10px;
+      transition: box-shadow var(--t), border-color var(--t), transform var(--t);
+    }
+    .musicCard:hover{ transform: translateY(-1px); box-shadow: var(--shadow); border-color: rgba(244,163,41,0.40); }
+    .musicTop{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+    }
+    .badge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px;
+      border-radius:9999px;
+      background:rgba(43,182,180,0.12);
+      border:1px solid rgba(43,182,180,0.35);
+      color:var(--text);
+      font-weight:600;
+    }
+    .slot{
+      min-height:46px;
+      border-radius:16px;
+      border:1px dashed rgba(31,41,55,0.24);
+      background: rgba(245,247,250,0.65);
+      padding:8px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .slot.dragover{
+      border-color: rgba(43,182,180,0.60);
+      background: rgba(43,182,180,0.10);
+    }
+    .slotChoice{
+      font-weight:600;
+      color:var(--text);
+    }
+    .slotEmpty{ color:var(--text-muted); }
+    .slotBtn{
+      border:1px solid var(--border);
+      background:transparent;
+      color:var(--text-2);
+      padding:6px 10px;
+      border-radius:9999px;
+    }
+    .slotBtn:hover{ background: rgba(31,41,55,0.06); }
+
+    .ok{ border-color: rgba(47,158,68,0.50) !important; box-shadow: 0 0 0 3px rgba(47,158,68,0.12); }
+    .bad{ border-color: rgba(217,45,32,0.50) !important; box-shadow: 0 0 0 3px rgba(217,45,32,0.10); }
+
+    /* Part 2 */
+    .clueBox{
+      border:1px solid var(--border);
+      background:var(--surface-alt);
+      border-radius:16px;
+      padding:14px;
+      min-height:92px;
+      display:flex;
+      align-items:center;
+      font-size:18px;
+      color:var(--text);
+    }
+    .scoreBox{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between;
+      margin-top:10px;
+    }
+    .scorePill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 12px;
+      border-radius:9999px;
+      border:1px solid var(--border);
+      background:var(--surface);
+      color:var(--text);
+      font-weight:600;
+      white-space:nowrap;
+    }
+
+    /* Part 3 */
+    .bigSentence{
+      font-size:22px;
+      background:var(--surface-alt);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:16px;
+      min-height:92px;
+      display:flex;
+      align-items:center;
+    }
+    .choicesGrid{
+      display:grid;
+      gap:10px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-top:12px;
+    }
+    @media (max-width: 900px){
+      .choicesGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px){
+      .choicesGrid{ grid-template-columns: 1fr; }
+    }
+    .choiceBtn{
+      text-align:left;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid var(--border);
+      background:var(--surface);
+      font-weight:600;
+      color:var(--text);
+      cursor:pointer;
+      transition: transform var(--t), box-shadow var(--t), border-color var(--t);
+    }
+    .choiceBtn:hover{ transform: translateY(-1px); box-shadow: var(--shadow); border-color: rgba(43,182,180,0.45); }
+
+    /* Part 4 */
+    .kwRow{
+      display:grid;
+      gap:10px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      margin-top:10px;
+    }
+    @media (max-width: 900px){
+      .kwRow{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px){
+      .kwRow{ grid-template-columns: 1fr; }
+    }
+    .kw{
+      border:1px solid var(--border);
+      background:var(--surface-alt);
+      border-radius:16px;
+      padding:10px 12px;
+      font-weight:600;
+      color:var(--text);
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px;
+    }
+    .kw small{ color:var(--text-muted); font-weight:400; }
+
+    .inputs{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+    textarea{
+      width:100%;
+      min-height:56px;
+      resize:vertical;
+      border-radius:16px;
+      border:1px solid var(--border);
+      padding:12px;
+      font:inherit;
+      background:var(--surface);
+      color:var(--text);
+      transition: box-shadow var(--t), border-color var(--t);
+    }
+    textarea:focus{
+      outline:none;
+      border-color: rgba(43,182,180,0.55);
+      box-shadow: 0 0 0 3px rgba(43,182,180,0.12);
+    }
+
+    .toast{
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid var(--border);
+      background:var(--surface-alt);
+      color:var(--text-2);
+      min-height:44px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .toast.good{ border-color: rgba(47,158,68,0.35); background: rgba(47,158,68,0.08); color: var(--text); }
+    .toast.bad{ border-color: rgba(217,45,32,0.35); background: rgba(217,45,32,0.08); color: var(--text); }
+
+    .hint{
+      border-left:4px solid rgba(244,163,41,0.55);
+      padding:10px 12px;
+      background: rgba(244,163,41,0.10);
+      border-radius:16px;
+      color:var(--text-2);
+      margin-top:10px;
+    }
+
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:12px;
+      background: rgba(31,41,55,0.06);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:2px 8px;
+      color: var(--text-2);
+      white-space:nowrap;
+    }
+
+    .hidden{ display:none !important; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Music Genres — Unit 6C</h1>
+        <p class="sub">Four mini-games: audio matching, clue guessing, fast sorting, and genre writing.</p>
+      </div>
+      <div class="pill" id="statusPill">Loading music.json…</div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Activity tabs">
+      <button class="tab" role="tab" aria-selected="true" aria-controls="panel1" id="tab1">Part 1 — Audio Match</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="panel2" id="tab2">Part 2 — 5 Clues + Points</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="panel3" id="tab3">Part 3 — Quick Sort</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="panel4" id="tab4">Part 4 — Genre Writer</button>
+    </nav>
+
+    <div class="grid">
+      <!-- Left sidebar -->
+      <aside class="card">
+        <h2>Genre bank</h2>
+        <p class="muted" style="margin-top:-4px;">
+          Drag a genre onto a drop zone.
+        </p>
+
+        <div class="btnrow" style="margin:10px 0 0;">
+          <button class="btn-ghost" id="btnStopAll" type="button">Stop audio</button>
+          <button class="btn-ghost" id="btnHelp" type="button">Help</button>
+        </div>
+
+        <div class="hint hidden" id="helpBox">
+          <div style="display:grid; gap:8px;">
+            <div><strong>Part 1:</strong> Click a music card ▶, then drag the correct genre under it.</div>
+            <div><strong>Part 2:</strong> Read all 5 clues. Then drag one genre to guess. +5 / −3.</div>
+            <div><strong>Part 3:</strong> Click the correct genre quickly. Some sentences can have 2–3 correct answers.</div>
+            <div><strong>Part 4:</strong> Write 5 sentences from keywords and download as TXT.</div>
+            <div class="muted">Tip: Audio files should be in <span class="kbd">data/</span> and named like <span class="kbd">pop.mp3</span>.</div>
+          </div>
+        </div>
+
+        <div class="bank" id="genreBank" aria-label="Draggable genres"></div>
+
+        <div class="hint" style="margin-top:14px;">
+          <strong>Teacher setup</strong><br>
+          Put your MP3 files in <span class="kbd">data/</span> and list their ids in <span class="kbd">music.json</span>.
+          Example: id <span class="kbd">heavy-metal</span> → file <span class="kbd">data/heavy-metal.mp3</span>.
+        </div>
+      </aside>
+
+      <!-- Panels -->
+      <main class="card">
+        <!-- PANEL 1 -->
+        <section id="panel1" role="tabpanel" aria-labelledby="tab1">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2>Part 1 — Audio Match</h2>
+              <p class="muted" style="margin-top:-4px;">12 music cards. Click to play. Drag the correct genre underneath.</p>
+            </div>
+            <div class="btnrow">
+              <button class="btn-ghost" id="p1Shuffle" type="button">New order</button>
+              <button class="btn-danger" id="p1Reset" type="button">Reset answers</button>
+            </div>
+          </div>
+
+          <div class="cards12" id="p1Cards" style="margin-top:10px;"></div>
+
+          <div class="toast" id="p1Toast" role="status" aria-live="polite">
+            <span class="muted">Click a card to play audio. Then drag a genre into the slot.</span>
+          </div>
+        </section>
+
+        <!-- PANEL 2 -->
+        <section id="panel2" role="tabpanel" aria-labelledby="tab2" class="hidden">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2>Part 2 — 5 Clues + Points</h2>
+              <p class="muted" style="margin-top:-4px;">Read clues one by one. After clue 5, drag one genre to guess.</p>
+            </div>
+            <div class="btnrow">
+              <button class="btn-ghost" id="p2Restart" type="button">Restart round</button>
+            </div>
+          </div>
+
+          <div class="scoreBox">
+            <div class="scorePill" id="p2Score">Score: 0</div>
+            <div class="scorePill" id="p2Progress">Round: 0 / 0</div>
+          </div>
+
+          <div class="clueBox" id="p2Clue" style="margin-top:12px;">Loading…</div>
+
+          <div class="btnrow" style="margin-top:12px;">
+            <button class="btn-primary" id="p2NextClue" type="button">Next clue</button>
+            <button class="btn-ghost" id="p2Play" type="button">Play audio</button>
+            <button class="btn-ghost" id="p2Stop" type="button">Stop</button>
+          </div>
+
+          <div class="hint" style="margin-top:12px;">
+            <strong>Guess zone</strong> (unlocks after clue 5)
+            <div class="slot" id="p2Drop" style="margin-top:10px;">
+              <span class="slotEmpty" id="p2DropText">Read all 5 clues first…</span>
+              <button class="slotBtn" id="p2Clear" type="button" title="Clear">Clear</button>
+            </div>
+          </div>
+
+          <div class="toast" id="p2Toast" role="status" aria-live="polite">
+            <span class="muted">Read clue 1 to start.</span>
+          </div>
+        </section>
+
+        <!-- PANEL 3 -->
+        <section id="panel3" role="tabpanel" aria-labelledby="tab3" class="hidden">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2>Part 3 — Quick Sort</h2>
+              <p class="muted" style="margin-top:-4px;">Read one sentence. Click the correct genre fast. (With sounds.)</p>
+            </div>
+            <div class="btnrow">
+              <button class="btn-ghost" id="p3Next" type="button">Next sentence</button>
+              <button class="btn-ghost" id="p3Sound" type="button" aria-pressed="true">Sound: on</button>
+              <button class="btn-danger" id="p3Reset" type="button">Reset score</button>
+            </div>
+          </div>
+
+          <div class="scoreBox" style="margin-top:10px;">
+            <div class="scorePill" id="p3Score">Correct: 0</div>
+            <div class="scorePill" id="p3Wrong">Wrong: 0</div>
+          </div>
+
+          <div class="bigSentence" id="p3Sentence" style="margin-top:12px;">Loading…</div>
+
+          <div class="choicesGrid" id="p3Choices" aria-label="Genre choices"></div>
+
+          <div class="toast" id="p3Toast" role="status" aria-live="polite">
+            <span class="muted">Click the correct genre.</span>
+          </div>
+        </section>
+
+        <!-- PANEL 4 -->
+        <section id="panel4" role="tabpanel" aria-labelledby="tab4" class="hidden">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <div>
+              <h2>Part 4 — Genre Writer</h2>
+              <p class="muted" style="margin-top:-4px;">You get one genre + 5 keywords. Write 5 sentences and download TXT.</p>
+            </div>
+            <div class="btnrow">
+              <button class="btn-ghost" id="p4New" type="button">New genre</button>
+              <button class="btn-danger" id="p4Clear" type="button">Clear text</button>
+            </div>
+          </div>
+
+          <div class="hint" style="margin-top:10px;">
+            <strong>Genre:</strong> <span class="kbd" id="p4Genre">—</span>
+            <div class="muted" style="margin-top:6px;">Use the keywords to help you write simple sentences.</div>
+          </div>
+
+          <div class="kwRow" id="p4Keywords"></div>
+
+          <div class="inputs" id="p4Inputs"></div>
+
+          <div class="btnrow" style="margin-top:12px;">
+            <button class="btn-primary" id="p4Download" type="button">Download TXT</button>
+            <button class="btn-info" id="p4Play" type="button">Play audio</button>
+            <button class="btn-ghost" id="p4Stop" type="button">Stop</button>
+          </div>
+
+          <div class="toast" id="p4Toast" role="status" aria-live="polite">
+            <span class="muted">Write 5 short sentences, then download.</span>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    /***************
+     * Embedded text DB (beginner-friendly)
+     * Each genre has 5 sentences + 5 keywords (one per sentence).
+     * Audio IDs come from music.json and must match these ids.
+     ***************/
+    const GENRES_DB = {
+      "pop": {
+        name: "Pop",
+        sentences: [
+          "It is very popular music.",
+          "You often hear it on the radio.",
+          "The songs are easy to remember.",
+          "People like to sing along.",
+          "It is usually happy and catchy."
+        ],
+        keywords: ["popular", "radio", "remember", "sing", "catchy"]
+      },
+      "rock": {
+        name: "Rock",
+        sentences: [
+          "It is loud music with guitars.",
+          "The beat is strong and fast.",
+          "People play electric guitars and drums.",
+          "It can sound exciting or noisy.",
+          "Many people listen to it at concerts."
+        ],
+        keywords: ["loud", "beat", "electric guitars", "exciting", "concerts"]
+      },
+      "jazz": {
+        name: "Jazz",
+        sentences: [
+          "It often has saxophones and trumpets.",
+          "The music can be slow or fast.",
+          "Musicians sometimes improvise.",
+          "It can sound relaxed and cool.",
+          "You can listen to it in cafés or clubs."
+        ],
+        keywords: ["saxophone", "slow/fast", "improvise", "relaxed", "club"]
+      },
+      "blues": {
+        name: "Blues",
+        sentences: [
+          "The music sounds slow and emotional.",
+          "The songs are often about life and feelings.",
+          "You can hear guitars a lot.",
+          "It can sound sad but calm.",
+          "The rhythm is usually steady."
+        ],
+        keywords: ["emotional", "feelings", "guitars", "sad", "steady"]
+      },
+      "punk": {
+        name: "Punk",
+        sentences: [
+          "The music is very fast.",
+          "The songs are short and loud.",
+          "The guitars sound strong and rough.",
+          "It can sound angry or energetic.",
+          "People often shout the words."
+        ],
+        keywords: ["fast", "short", "rough", "angry", "shout"]
+      },
+      "heavy-metal": {
+        name: "Heavy metal",
+        sentences: [
+          "It is very loud music.",
+          "The guitars are heavy and strong.",
+          "The drums are fast and powerful.",
+          "The singing can be very loud.",
+          "It sounds intense and dramatic."
+        ],
+        keywords: ["loud", "heavy guitars", "powerful drums", "loud singing", "intense"]
+      },
+      "hip-hop": {
+        name: "Hip hop",
+        sentences: [
+          "The music has a strong beat.",
+          "People often rap instead of sing.",
+          "The words are very important.",
+          "It is popular with young people.",
+          "You can hear it in the city."
+        ],
+        keywords: ["beat", "rap", "words", "popular", "city"]
+      },
+      "reggae": {
+        name: "Reggae",
+        sentences: [
+          "The music is slow and relaxed.",
+          "It has a special rhythm.",
+          "The songs feel calm and warm.",
+          "People listen to it to relax.",
+          "It makes you feel like summer."
+        ],
+        keywords: ["relaxed", "rhythm", "warm", "relax", "summer"]
+      },
+      "folk": {
+        name: "Folk",
+        sentences: [
+          "It is traditional music.",
+          "People play acoustic instruments.",
+          "The songs tell stories.",
+          "The music sounds simple and natural.",
+          "It can be old or modern."
+        ],
+        keywords: ["traditional", "acoustic", "stories", "natural", "old/modern"]
+      },
+      "country": {
+        name: "Country",
+        sentences: [
+          "The music tells stories about life.",
+          "You often hear guitars.",
+          "The singing is clear and strong.",
+          "The songs are easy to understand.",
+          "It sounds calm and friendly."
+        ],
+        keywords: ["stories", "guitars", "clear", "understand", "friendly"]
+      },
+      "classical": {
+        name: "Classical",
+        sentences: [
+          "It is old and traditional music.",
+          "You often hear instruments like the piano or violin.",
+          "The music can be slow and calm.",
+          "There is usually no singing.",
+          "People listen to it to relax or study."
+        ],
+        keywords: ["traditional", "piano/violin", "calm", "no singing", "study"]
+      },
+      "rnb": {
+        name: "R&B",
+        sentences: [
+          "The music is smooth and emotional.",
+          "The songs are often about love.",
+          "The singing is soft and strong.",
+          "The rhythm is slow or medium.",
+          "It sounds warm and relaxed."
+        ],
+        keywords: ["smooth", "love", "singing", "slow", "warm"]
+      }
+    };
+
+    const AUDIO_LIST_URL = "music.json";
+    const AUDIO_FOLDER = "data";
+
+    const $ = (id) => document.getElementById(id);
+
+    // Tabs
+    const tabs = [
+      { btn: $("tab1"), panel: $("panel1") },
+      { btn: $("tab2"), panel: $("panel2") },
+      { btn: $("tab3"), panel: $("panel3") },
+      { btn: $("tab4"), panel: $("panel4") }
+    ];
+
+    function stopAllAudio(){
+      audio.pause();
+      try{ audio.currentTime = 0; }catch(e){}
+    }
+
+    function selectTab(i){
+      tabs.forEach((t, idx) => {
+        const selected = idx === i;
+        t.btn.setAttribute("aria-selected", selected ? "true" : "false");
+        t.panel.classList.toggle("hidden", !selected);
+      });
+      stopAllAudio();
+    }
+    tabs.forEach((t, i) => t.btn.addEventListener("click", () => selectTab(i)));
+
+    // Help
+    $("btnHelp").addEventListener("click", () => {
+      $("helpBox").classList.toggle("hidden");
+    });
+
+    // Genre bank + ids
+    let AUDIO_IDS = [];
+    let ACTIVE_IDS = [];
+    const genreBank = $("genreBank");
+
+    // Shared audio
+    const audio = new Audio();
+    audio.preload = "none";
+
+    function audioUrlFor(id){
+      return `${AUDIO_FOLDER}/${id}.mp3`;
+    }
+
+    function playAudio(id){
+      const url = audioUrlFor(id);
+      audio.pause();
+      try{ audio.currentTime = 0; }catch(e){}
+      audio.src = url;
+      audio.play().catch(() => {});
+    }
+
+    $("btnStopAll").addEventListener("click", stopAllAudio);
+
+    function buildGenreBank(ids){
+      genreBank.innerHTML = "";
+      ids.forEach(id => {
+        const g = GENRES_DB[id];
+        const div = document.createElement("div");
+        div.className = "chip";
+        div.draggable = true;
+        div.dataset.id = id;
+        div.innerHTML = `<span>${g.name}</span><small>drag</small>`;
+
+        div.addEventListener("dragstart", (e) => {
+          e.dataTransfer.setData("text/plain", id);
+          e.dataTransfer.effectAllowed = "copy";
+        });
+
+        // Optional: click plays audio
+        div.addEventListener("click", () => playAudio(id));
+
+        genreBank.appendChild(div);
+      });
+    }
+
+    function shuffle(arr){
+      const a = arr.slice();
+      for(let i = a.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    // -------------------
+    // PART 1 — Audio Match
+    // -------------------
+    let p1Deck = [];
+    let p1Answers = {};
+    const p1Cards = $("p1Cards");
+    const p1Toast = $("p1Toast");
+
+    function p1SetToast(kind, html){
+      p1Toast.className = "toast" + (kind ? (" " + kind) : "");
+      p1Toast.innerHTML = html;
+    }
+
+    function makeDropSlot({ onDrop, onClear }){
+      const slot = document.createElement("div");
+      slot.className = "slot";
+      const text = document.createElement("span");
+      text.className = "slotEmpty";
+      text.textContent = "Drop genre here";
+      const clear = document.createElement("button");
+      clear.className = "slotBtn";
+      clear.type = "button";
+      clear.textContent = "Clear";
+
+      slot.appendChild(text);
+      slot.appendChild(clear);
+
+      slot.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        slot.classList.add("dragover");
+        e.dataTransfer.dropEffect = "copy";
+      });
+      slot.addEventListener("dragleave", () => slot.classList.remove("dragover"));
+      slot.addEventListener("drop", (e) => {
+        e.preventDefault();
+        slot.classList.remove("dragover");
+        const id = e.dataTransfer.getData("text/plain");
+        onDrop(id, text, slot);
+      });
+
+      clear.addEventListener("click", () => onClear(text, slot));
+
+      return slot;
+    }
+
+    function p1Render(){
+      p1Cards.innerHTML = "";
+      p1Answers = {};
+
+      p1Deck.forEach((trueId, idx) => {
+        const card = document.createElement("div");
+        card.className = "musicCard";
+
+        const top = document.createElement("div");
+        top.className = "musicTop";
+
+        const badge = document.createElement("div");
+        badge.className = "badge";
+        badge.textContent = `Card ${idx + 1}`;
+
+        const controls = document.createElement("div");
+        controls.className = "btnrow";
+
+        const btnPlay = document.createElement("button");
+        btnPlay.className = "btn-primary";
+        btnPlay.type = "button";
+        btnPlay.textContent = "Play";
+        btnPlay.addEventListener("click", () => {
+          playAudio(trueId);
+          p1SetToast("", `<span class="muted">Playing <strong>Card ${idx+1}</strong>. Now drag the correct genre.</span>`);
+        });
+
+        const btnStop = document.createElement("button");
+        btnStop.className = "btn-ghost";
+        btnStop.type = "button";
+        btnStop.textContent = "Stop";
+        btnStop.addEventListener("click", stopAllAudio);
+
+        controls.appendChild(btnPlay);
+        controls.appendChild(btnStop);
+
+        top.appendChild(badge);
+        top.appendChild(controls);
+
+        const slot = makeDropSlot({
+          onDrop: (chosenId, textEl, slotEl) => {
+            if(!ACTIVE_IDS.includes(chosenId)) return;
+            p1Answers[idx] = chosenId;
+
+            textEl.className = "slotChoice";
+            textEl.textContent = GENRES_DB[chosenId].name;
+
+            const correct = chosenId === trueId;
+            slotEl.classList.remove("ok","bad");
+            slotEl.classList.add(correct ? "ok" : "bad");
+
+            p1SetToast(correct ? "good" : "bad",
+              correct
+                ? `✅ Correct for Card ${idx+1}!`
+                : `❌ Not correct for Card ${idx+1}. Try a different genre.`
+            );
+          },
+          onClear: (textEl, slotEl) => {
+            delete p1Answers[idx];
+            textEl.className = "slotEmpty";
+            textEl.textContent = "Drop genre here";
+            slotEl.classList.remove("ok","bad");
+          }
+        });
+
+        card.appendChild(top);
+        card.appendChild(slot);
+        p1Cards.appendChild(card);
+      });
+    }
+
+    function p1NewOrder(){
+      p1Deck = shuffle(ACTIVE_IDS).slice(0, 12);
+      p1Render();
+      p1SetToast("", `<span class="muted">New order ready. Click a card to play.</span>`);
+    }
+
+    $("p1Shuffle").addEventListener("click", () => { stopAllAudio(); p1NewOrder(); });
+    $("p1Reset").addEventListener("click", () => { stopAllAudio(); p1Render(); p1SetToast("", `<span class="muted">Answers cleared.</span>`); });
+
+    // -------------------
+    // PART 2 — 5 Clues + Points
+    // -------------------
+    const p2Clue = $("p2Clue");
+    const p2NextClue = $("p2NextClue");
+    const p2Drop = $("p2Drop");
+    const p2DropText = $("p2DropText");
+    const p2Clear = $("p2Clear");
+    const p2Toast = $("p2Toast");
+    const p2Score = $("p2Score");
+    const p2Progress = $("p2Progress");
+    const p2Play = $("p2Play");
+    const p2Stop = $("p2Stop");
+
+    let p2Order = [];
+    let p2RoundIndex = 0;
+    let p2ClueIndex = 0;
+    let p2CurrentId = null;
+    let p2ScoreVal = 0;
+    let p2Guessed = false;
+
+    function p2SetToast(kind, html){
+      p2Toast.className = "toast" + (kind ? (" " + kind) : "");
+      p2Toast.innerHTML = html;
+    }
+
+    function p2UpdateUI(){
+      p2Score.textContent = `Score: ${p2ScoreVal}`;
+      p2Progress.textContent = `Round: ${Math.min(p2RoundIndex+1, p2Order.length)} / ${p2Order.length}`;
+
+      const canGuess = (p2ClueIndex >= 5) && !p2Guessed;
+
+      if(canGuess){
+        p2DropText.className = "slotEmpty";
+        p2DropText.textContent = "Now guess: drop ONE genre here";
+      }else if(!p2Guessed){
+        p2DropText.className = "slotEmpty";
+        p2DropText.textContent = "Read all 5 clues first…";
+      }
+
+      p2NextClue.disabled = p2Guessed || p2ClueIndex >= 5;
+      p2Play.disabled = !p2CurrentId;
+      p2Stop.disabled = false;
+    }
+
+    function p2StartRound(){
+      p2Order = shuffle(ACTIVE_IDS);
+      p2RoundIndex = 0;
+      p2ScoreVal = 0;
+      p2StartItem();
+      p2SetToast("", `<span class="muted">Read the clues. You can guess after clue 5.</span>`);
+    }
+
+    function p2StartItem(){
+      p2CurrentId = p2Order[p2RoundIndex] || null;
+      p2ClueIndex = 0;
+      p2Guessed = false;
+
+      p2Clue.textContent = "Click “Next clue” to show clue 1.";
+      p2Drop.classList.remove("ok","bad");
+      p2DropText.className = "slotEmpty";
+      p2DropText.textContent = "Read all 5 clues first…";
+
+      p2UpdateUI();
+    }
+
+    function p2ShowNextClue(){
+      if(!p2CurrentId) return;
+      if(p2ClueIndex >= 5) return;
+
+      const sent = GENRES_DB[p2CurrentId].sentences[p2ClueIndex];
+      p2ClueIndex++;
+      p2Clue.textContent = `Clue ${p2ClueIndex}/5: ${sent}`;
+
+      if(p2ClueIndex === 5){
+        p2SetToast("", `<span class="muted">Now guess! Drag one genre into the drop zone.</span>`);
+      }else{
+        p2SetToast("", `<span class="muted">Keep reading…</span>`);
+      }
+
+      p2UpdateUI();
+    }
+
+    function p2HandleGuess(chosenId){
+      if(!p2CurrentId) return;
+      if(p2Guessed) return;
+      if(p2ClueIndex < 5) return;
+      if(!ACTIVE_IDS.includes(chosenId)) return;
+
+      p2Guessed = true;
+
+      const correct = chosenId === p2CurrentId;
+      if(correct){
+        p2ScoreVal += 5;
+        p2Drop.classList.add("ok");
+        p2SetToast("good", `✅ Correct! It was <strong>${GENRES_DB[p2CurrentId].name}</strong> (+5).`);
+      }else{
+        p2ScoreVal -= 3;
+        p2Drop.classList.add("bad");
+        p2SetToast("bad", `❌ Wrong. Correct answer: <strong>${GENRES_DB[p2CurrentId].name}</strong> (−3).`);
+      }
+
+      p2DropText.className = "slotChoice";
+      p2DropText.textContent = GENRES_DB[chosenId].name;
+
+      p2UpdateUI();
+
+      setTimeout(() => {
+        p2RoundIndex++;
+        if(p2RoundIndex >= p2Order.length){
+          p2Clue.textContent = "Finished! Restart the round to play again.";
+          p2SetToast("", `🏁 Finished! Final score: <strong>${p2ScoreVal}</strong>.`);
+          p2CurrentId = null;
+          p2UpdateUI();
+        }else{
+          p2StartItem();
+        }
+      }, 900);
+    }
+
+    p2Drop.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      p2Drop.classList.add("dragover");
+      e.dataTransfer.dropEffect = "copy";
+    });
+    p2Drop.addEventListener("dragleave", () => p2Drop.classList.remove("dragover"));
+    p2Drop.addEventListener("drop", (e) => {
+      e.preventDefault();
+      p2Drop.classList.remove("dragover");
+      const id = e.dataTransfer.getData("text/plain");
+      p2HandleGuess(id);
+    });
+
+    p2Clear.addEventListener("click", () => {
+      if(p2Guessed) return;
+      p2DropText.className = "slotEmpty";
+      p2DropText.textContent = (p2ClueIndex >= 5) ? "Now guess: drop ONE genre here" : "Read all 5 clues first…";
+      p2SetToast("", `<span class="muted">Drop cleared.</span>`);
+    });
+
+    p2NextClue.addEventListener("click", p2ShowNextClue);
+    $("p2Restart").addEventListener("click", () => { stopAllAudio(); p2StartRound(); });
+
+    p2Play.addEventListener("click", () => { if(p2CurrentId) playAudio(p2CurrentId); });
+    p2Stop.addEventListener("click", stopAllAudio);
+
+    // -------------------
+    // PART 3 — Quick Sort (accept multiple correct genres per sentence)
+    // -------------------
+    const p3Sentence = $("p3Sentence");
+    const p3Choices = $("p3Choices");
+    const p3Toast = $("p3Toast");
+    const p3ScoreEl = $("p3Score");
+    const p3WrongEl = $("p3Wrong");
+    const p3SoundBtn = $("p3Sound");
+
+    let p3SoundOn = true;
+    let p3Correct = 0;
+    let p3Wrong = 0;
+    let p3Current = null; // { sentence, ids: [accepted ids] }
+    let p3Pool = [];      // built from DB; only 1–3 accepted answers
+
+    function p3SetToast(kind, html){
+      p3Toast.className = "toast" + (kind ? (" " + kind) : "");
+      p3Toast.innerHTML = html;
+    }
+
+    function p3UpdateScore(){
+      p3ScoreEl.textContent = `Correct: ${p3Correct}`;
+      p3WrongEl.textContent = `Wrong: ${p3Wrong}`;
+    }
+
+    function beep(type){
+      if(!p3SoundOn) return;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+
+      o.frequency.value = (type === "good") ? 660 : 220;
+
+      g.gain.value = 0.0001;
+      o.start();
+
+      const now = ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(0.06, now + 0.02);
+      g.gain.linearRampToValueAtTime(0.0001, now + 0.18);
+
+      o.stop(now + 0.2);
+      o.onended = () => ctx.close();
+    }
+
+    function p3BuildChoices(){
+      p3Choices.innerHTML = "";
+      ACTIVE_IDS.forEach(id => {
+        const b = document.createElement("button");
+        b.className = "choiceBtn";
+        b.type = "button";
+        b.textContent = GENRES_DB[id].name;
+        b.addEventListener("click", () => p3Choose(id));
+        p3Choices.appendChild(b);
+      });
+    }
+
+    function buildP3Pool(){
+      // sentence -> Set(ids)
+      const map = new Map();
+
+      ACTIVE_IDS.forEach(id => {
+        GENRES_DB[id].sentences.forEach(s => {
+          const key = s.trim();
+          if(!map.has(key)) map.set(key, new Set());
+          map.get(key).add(id);
+        });
+      });
+
+      // keep only sentences that match 1–3 genres
+      const pool = [];
+      for(const [sentence, set] of map.entries()){
+        const ids = Array.from(set);
+        if(ids.length >= 1 && ids.length <= 3){
+          pool.push({ sentence, ids });
+        }
+      }
+      return pool;
+    }
+
+    function p3NextSentence(){
+      if(p3Pool.length === 0){
+        p3Pool = buildP3Pool();
+      }
+      if(p3Pool.length === 0){
+        p3Sentence.textContent = "No valid sentences found (check the DB).";
+        p3SetToast("bad", "There are no sentences that match 1–3 genres.");
+        return;
+      }
+      p3Current = p3Pool[Math.floor(Math.random() * p3Pool.length)];
+      p3Sentence.textContent = p3Current.sentence;
+
+      // Keep it game-like (do NOT reveal accepted answers)
+      p3SetToast("", `<span class="muted">Click the correct genre.</span>`);
+    }
+
+    function p3Choose(chosenId){
+      if(!p3Current) return;
+
+      const correct = p3Current.ids.includes(chosenId);
+
+      if(correct){
+        p3Correct++;
+        p3SetToast("good", `✅ Correct!`);
+        beep("good");
+      }else{
+        p3Wrong++;
+        const acceptedNames = p3Current.ids.map(id => GENRES_DB[id].name).join(", ");
+        p3SetToast("bad", `❌ Wrong. Accepted: <strong>${acceptedNames}</strong>.`);
+        beep("bad");
+      }
+
+      p3UpdateScore();
+      setTimeout(p3NextSentence, 650);
+    }
+
+    $("p3Next").addEventListener("click", p3NextSentence);
+    $("p3Reset").addEventListener("click", () => {
+      p3Correct = 0; p3Wrong = 0; p3UpdateScore();
+      p3SetToast("", `<span class="muted">Score reset.</span>`);
+    });
+    p3SoundBtn.addEventListener("click", () => {
+      p3SoundOn = !p3SoundOn;
+      p3SoundBtn.setAttribute("aria-pressed", p3SoundOn ? "true" : "false");
+      p3SoundBtn.textContent = `Sound: ${p3SoundOn ? "on" : "off"}`;
+    });
+
+    // -------------------
+    // PART 4 — Genre Writer + download TXT
+    // -------------------
+    const p4Genre = $("p4Genre");
+    const p4Keywords = $("p4Keywords");
+    const p4Inputs = $("p4Inputs");
+    const p4Toast = $("p4Toast");
+    const p4Play = $("p4Play");
+    const p4Stop = $("p4Stop");
+
+    let p4CurrentId = null;
+
+    function p4SetToast(kind, html){
+      p4Toast.className = "toast" + (kind ? (" " + kind) : "");
+      p4Toast.innerHTML = html;
+    }
+
+    function p4SetGenre(id){
+      p4CurrentId = id;
+      p4Genre.textContent = GENRES_DB[id].name;
+
+      p4Keywords.innerHTML = "";
+      GENRES_DB[id].keywords.forEach((kw, idx) => {
+        const d = document.createElement("div");
+        d.className = "kw";
+        d.innerHTML = `<span>${kw}</span><small>#${idx+1}</small>`;
+        p4Keywords.appendChild(d);
+      });
+
+      p4Inputs.innerHTML = "";
+      for(let i=0; i<5; i++){
+        const ta = document.createElement("textarea");
+        ta.placeholder = `Sentence ${i+1} (use keyword: "${GENRES_DB[id].keywords[i]}")`;
+        p4Inputs.appendChild(ta);
+      }
+
+      p4SetToast("", `<span class="muted">Write 5 short sentences about <strong>${GENRES_DB[id].name}</strong>.</span>`);
+    }
+
+    function p4New(){
+      p4SetGenre(ACTIVE_IDS[Math.floor(Math.random() * ACTIVE_IDS.length)]);
+    }
+
+    function p4ClearText(){
+      [...p4Inputs.querySelectorAll("textarea")].forEach(t => t.value = "");
+      p4SetToast("", `<span class="muted">Text cleared.</span>`);
+    }
+
+    function p4Download(){
+      if(!p4CurrentId) return;
+
+      const lines = [...p4Inputs.querySelectorAll("textarea")]
+        .map(t => t.value.trim())
+        .filter(Boolean);
+
+      if(lines.length === 0){
+        p4SetToast("bad", `Please write at least <strong>one</strong> sentence before downloading.`);
+        return;
+      }
+
+      const title = `Genre: ${GENRES_DB[p4CurrentId].name}\n\n`;
+      const body = lines.map((l, i) => `${i+1}. ${l}`).join("\n");
+      const content = title + body + "\n";
+
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const a = document.createElement("a");
+      const safeName = GENRES_DB[p4CurrentId].name.replace(/[^\w\-]+/g, "_");
+      a.download = `genre_writer_${safeName}.txt`;
+      a.href = URL.createObjectURL(blob);
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(a.href);
+        a.remove();
+      }, 0);
+
+      p4SetToast("good", `✅ Downloaded! (Check your Downloads folder.)`);
+    }
+
+    $("p4New").addEventListener("click", () => { stopAllAudio(); p4New(); });
+    $("p4Clear").addEventListener("click", p4ClearText);
+    $("p4Download").addEventListener("click", p4Download);
+
+    p4Play.addEventListener("click", () => { if(p4CurrentId) playAudio(p4CurrentId); });
+    p4Stop.addEventListener("click", stopAllAudio);
+
+    // -------------------
+    // Loading music.json + init
+    // -------------------
+    const statusPill = $("statusPill");
+
+    async function loadMusicIds(){
+      try{
+        const res = await fetch("music.json", { cache: "no-store" });
+        if(!res.ok) throw new Error("music.json not found");
+        const list = await res.json();
+        if(!Array.isArray(list) || list.length < 2) throw new Error("music.json invalid");
+        return list.map(x => String(x).trim()).filter(Boolean);
+      }catch(err){
+        return null;
+      }
+    }
+
+    function validateIds(ids){
+      const ok = ids.filter(id => GENRES_DB[id]);
+      const missingText = ids.filter(id => !GENRES_DB[id]);
+      return { ok, missingText };
+    }
+
+    function updateStatus(){
+      statusPill.textContent = `Genres loaded: ${ACTIVE_IDS.length} • Audio folder: /${AUDIO_FOLDER}/`;
+    }
+
+    function initAll(){
+      buildGenreBank(ACTIVE_IDS);
+
+      // Part 1
+      p1NewOrder();
+
+      // Part 2
+      p2StartRound();
+
+      // Part 3
+      p3BuildChoices();
+      p3UpdateScore();
+      p3Pool = buildP3Pool(); // prebuild pool with 1–3 accepted genres
+      p3NextSentence();
+
+      // Part 4
+      p4New();
+
+      updateStatus();
+    }
+
+    (async function boot(){
+      const ids = await loadMusicIds();
+
+      if(!ids){
+        AUDIO_IDS = Object.keys(GENRES_DB);
+        ACTIVE_IDS = AUDIO_IDS.slice();
+        statusPill.textContent = "music.json not found — using built-in genre list (audio may not work yet).";
+        initAll();
+        return;
+      }
+
+      AUDIO_IDS = ids;
+      const { ok, missingText } = validateIds(AUDIO_IDS);
+      ACTIVE_IDS = ok.slice();
+
+      if(ACTIVE_IDS.length < 12){
+        statusPill.textContent = `music.json loaded, but only ${ACTIVE_IDS.length} ids match the text DB. Check ids.`;
+      }else{
+        statusPill.textContent = "music.json loaded ✓";
+      }
+
+      if(missingText.length){
+        console.warn("IDs in music.json not found in text DB:", missingText);
+      }
+
+      initAll();
+    })();
+  </script>
+</body>
+</html>
